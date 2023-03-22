@@ -1,6 +1,7 @@
-
 import config
 import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 class DataFetcher:
@@ -46,7 +47,8 @@ class DataFetcher:
         match data such that only entries from dates where
         all requested financial and price data is available
         """
-        companies_to_keep = prices.loc[prices['permno'].isin(ratios['permno']), 'permno'].unique()
+        companies_to_keep = prices.loc[
+            prices['permno'].isin(ratios['permno']), 'permno'].unique()
         prices = prices.loc[prices['permno'].isin(companies_to_keep)]
         ratios = ratios.loc[ratios['permno'].isin(companies_to_keep)]
         return prices, ratios
@@ -79,7 +81,128 @@ class DataFetcher:
         return _prices, _ratios
 
 
-class BackTester(DataFetcher):
+class Analyser:
+    """
+    Class with methods to analyse backtesting results
+    """
+    def _rolling_sharpe(self, returns, window=12):
+        """
+        get rolling sharpe over 12 months
+        """
+        rolling_mean = returns.rolling(window=window).mean()
+        rolling_std = returns.rolling(window=window).std()
+        sharpe_ratio = np.sqrt(window) * (rolling_mean / rolling_std)
+        return sharpe_ratio
+
+
+    def _cumulative_returns(self, returns):
+        """
+        get cumulative returns
+        """
+        return (returns+1).cumprod()
+
+
+    def _plot_drawdown_curve(self, returns, ax):
+        """
+        plot drawdown curve for a series of returns.
+        """
+        # Calculate cumulative returns
+        cumulative_returns = (1 + returns).cumprod()
+        running_max = pd.Series(cumulative_returns).cummax()
+        drawdown = (cumulative_returns - running_max) / running_max
+        drawdown = drawdown.dropna()
+        ax.plot(drawdown)
+        ax.fill_between(drawdown.index, drawdown, 0, alpha=0.1)
+        ax.set(title='Drawdown Curve')
+
+
+    def _get_metrics(self, returns):
+        """
+        get some standard return metrics
+        """
+        metrics = pd.Series({
+            'Mean returns' : returns.mean(),
+            'Standard deviation' : returns.std(),
+            'Sharpe' : returns.mean() / returns.std(),
+            'Skew' : returns.skew(),
+            'Kurtosis' : returns.kurtosis()
+        })
+
+        return metrics.round(3)
+
+
+    def _plot_metrics(self, metrics, ax):
+        """
+        plot table of return metrics
+        """
+        ax.axis('off')
+        ax.axis('tight')
+
+        #create table
+        ax.table(
+            rowLabels=metrics.index,
+            cellText=metrics.values,
+            cellLoc='center',
+            colLabels=metrics.columns,
+            bbox=[0.2,0,0.8,1])
+    
+        
+    def plot_results(self, returns, benchmark, investments):
+        """
+        method drawing all of the plots for backtest
+        analytics, should be called from backtest class
+        """
+        market = benchmark.mean(axis=1)
+
+        # create 2x3 plotgrid
+        fig, axs = plt.subplot_mosaic(
+            mosaic="""
+            AB
+            CD
+            EE
+            """,
+            figsize=(8,12))
+        fig.set_dpi(120)
+
+        # cumulative returns plot
+        benchmark_cumulative = self._cumulative_returns(market)
+        strategy_cumulative = self._cumulative_returns(returns)
+        benchmark_cumulative.plot(ax=axs['A'], label='Market')
+        strategy_cumulative.plot(ax=axs['A'], label='Backtest')
+        axs['A'].legend()
+        axs['A'].set_title('Cumulative Returns')
+        axs['A'].set_xlabel('')
+
+        # rolling sharpe plot
+        benchmark_cumulative = self._rolling_sharpe(market)
+        strategy_cumulative = self._rolling_sharpe(returns)
+        benchmark_cumulative.plot(ax=axs['B'], label='Market')
+        strategy_cumulative.plot(ax=axs['B'], label='Backtest')
+        axs['B'].set_title('Rolling Sharpe')
+        axs['B'].set_xlabel('')
+
+        # drawdown plot
+        self._plot_drawdown_curve(returns, ax=axs['C'])
+
+        # number of stocks plot
+        investments['allocs'].apply(len).plot(ax=axs['D'])
+        axs['D'].set_title('Number of investments')
+
+        # metrics plot 
+        benchmark_metrics = self._get_metrics(market)
+        strategy_metrics = self._get_metrics(returns)
+        metrics = pd.DataFrame(
+            {'Strategy':strategy_metrics, 'Market':benchmark_metrics})
+        self._plot_metrics(metrics=metrics, ax=axs['E'])
+
+        # title and layout
+        fig.suptitle('Backtest Results', fontsize=24)
+        fig.tight_layout()
+
+        plt.show()
+
+
+class BackTester(DataFetcher, Analyser):
     def __init__(self):
         DataFetcher.__init__(self)
         self.returns = self.prices.pivot(
@@ -90,31 +213,33 @@ class BackTester(DataFetcher):
 
     def _results(self):
         """
-        function calculating results given allocations
+        calculate results given allocations
         """
-        portfolio_returns = []
+        portfolio_returns = {}
         for _, data in self.investments.iterrows():
             # get pertinent return data
             _returns = self.returns.loc[
-                (data['buy_date']<self.returns.index) & (self.returns.index<=data['sell_date']), data['allocs'].index]
-            # multiply by allocations
-            _returns = _returns.multiply(data['allocs'])
+                (data['buy_date']<self.returns.index) & (self.returns.index<=data['sell_date']),
+                data['allocs'].index]
+            # multiply by allocations, get cumulative
+            _returns = _returns.multiply(data['allocs']) + 1
+            _returns = _returns.cumprod().iloc[-1] - 1
             # get sum + 1 (portfolio return)
-            _returns = _returns.sum(axis=1) + 1
-            portfolio_returns.append(_returns)
+            _returns = _returns.sum()
+            portfolio_returns[data['sell_date']]=_returns
         # return series of returns over all periods
-        return pd.concat(portfolio_returns)
+        return pd.Series(portfolio_returns)
 
 
     def rolling_test(
             self,
-            decision_function,
+            strategy,
             n_prices=1,
             n_ratios=1,
             frequency=1
             ):
         """
-        main backtesting function, fetches data at
+        main backtesting method, fetches data at
         desired frequency, investment strategy and
         returns allocations given strategy
         """
@@ -129,7 +254,7 @@ class BackTester(DataFetcher):
                 n_prices=n_prices,
                 n_ratios=n_ratios)
             # get investments for date
-            investments.loc[_date] = decision_function(
+            investments.loc[_date] = strategy(
                 prices=_prices,
                 ratios=_ratios)
             self._test_prices = _prices
@@ -144,19 +269,15 @@ class BackTester(DataFetcher):
 
 
     def analyse(self):
+        """
+        analyse return using the Analyser class
+        """
         try:
-            _returns = self.results-1
+            _ = self.results
         except NameError:
             print('Unable to analyse results, has backtest been run?')
 
-        metrics = pd.Series({
-            'Mean returns' : _returns.mean(),
-            'Standard deviation' : _returns.std(),
-            'Sharpe' : _returns.mean() / _returns.std(),
-            'Skew' : _returns.skew(),
-            'Kurtosis' : _returns.kurtosis()
-        })
-
-        metrics = metrics.round(3)
-
-        return metrics
+        self.plot_results(
+            returns=self.results,
+            benchmark=self.returns,
+            investments=self.investments)
