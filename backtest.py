@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
+
 class DataFetcher:
     """
     Class containing all methods required to fetch
@@ -222,11 +223,11 @@ class BackTester(DataFetcher, Analyser):
                 (data['buy_date']<self.returns.index) & (self.returns.index<=data['sell_date']),
                 data['allocs'].index]
             # multiply by allocations, get cumulative
-            _returns = _returns.multiply(data['allocs']) + 1
-            _returns = _returns.cumprod().iloc[-1] - 1
-            # get sum + 1 (portfolio return)
-            _returns = _returns.sum()
-            portfolio_returns[data['sell_date']]=_returns
+            _returns = _returns.multiply(data['allocs'])
+            _returns = _returns.sum(axis=1)
+            for date in _returns.index:
+                portfolio_returns[date]=_returns.loc[date]
+            #portfolio_returns[data['sell_date']]=_returns
         # return series of returns over all periods
         return pd.Series(portfolio_returns)
 
@@ -236,7 +237,8 @@ class BackTester(DataFetcher, Analyser):
             strategy,
             n_prices=1,
             n_ratios=1,
-            frequency=1
+            frequency=1,
+            disable_tqdm=False
             ):
         """
         main backtesting method, fetches data at
@@ -247,7 +249,7 @@ class BackTester(DataFetcher, Analyser):
         # jump ahead in dates to allow lookback
         _dates = self.dates.iloc[max(n_prices, n_ratios):]
         # loop over dates
-        for _date in tqdm(_dates[::frequency]):
+        for _date in tqdm(_dates[::frequency], disable=disable_tqdm):
             # get data for date
             _prices, _ratios = self._get_data(
                 date=_date,

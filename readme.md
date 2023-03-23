@@ -45,7 +45,8 @@ backtester = BackTester()
 # run backtest with entire_market strategy
 backtester.rolling_test(
     strategy=entire_market,
-    n_prices=1, 
+    n_prices=1,
+    n_ratios=1, 
     frequency=1
 )
 
@@ -53,7 +54,7 @@ backtester.rolling_test(
 metrics = backtester.analyse()
 ```
 
-    100%|██████████| 323/323 [00:01<00:00, 193.99it/s]
+    100%|██████████| 323/323 [00:01<00:00, 197.60it/s]
 
 
 
@@ -91,29 +92,34 @@ Below these parameters are chosen arbitrarily in a first attempt, however, we wi
 ```python
 from strategy import ClusterMomentum
 
-n = 3
-f = 1
-v = 0.9
-k = 15
+initial_params = {
+    'n' : 3, 
+    'f' : 1,
+    'v' : 0.9,
+    'k' : 15}
 
 # create new backtester object
 backtester = BackTester()
 
 # create strategy object
-clustermomentum = ClusterMomentum(n_clusters=k, variance=v)
+clustermomentum = ClusterMomentum(
+    n_clusters=initial_params['k'],
+    variance=initial_params['v']
+)
 
 # run backtest
 backtester.rolling_test(
     strategy=clustermomentum.strategy,
-    n_prices=n,
-    frequency=f
+    n_prices=initial_params['n'],
+    n_ratios=1,
+    frequency=initial_params['f']
 )
 
 # analyse backtest results
 metrics = backtester.analyse()
 ```
 
-    100%|██████████| 321/321 [00:13<00:00, 22.97it/s]
+    100%|██████████| 321/321 [00:13<00:00, 24.01it/s]
 
 
 
@@ -125,35 +131,177 @@ metrics = backtester.analyse()
 The first attempt of the strategy proved very volatile. While it in total delivered greater cumulative returns than the market. It does this at the cost of a significant increase in the standard deviation, which leads to it having a smaller Sharpe ratio than the general market. This is also emphasised by the immense kurtosis of the returns, which is significantly larger than that of the market. The frequent large losses are also illustrated in the drawdown curve.
 
 # Bayesian optimisation
+To improve the results of our investment strategy we want to find better parameters for the strategy and the backtest. To do this we will use Optuna, an automatic hyperparameter optimisation framework.
+
+We will first create an objective function, in our case we will make this a backtest of the strategy for data up to 2017 and return the Sharpe ratio of this backtest. Within this objective function, we also define the variable parameters which Optuna will try to optimise using Bayesian optimisation. Optuna will then iteratively run trials and try to improve the results based on the knowlegde gained from previous trials. 
+
+With some luck, this should give us a better Sharpe ratio than the one achieved above. 
 
 
 ```python
 import optuna
 
 def objective(trial):
-    # Define the search space for your hyperparameters
-    variance = trial.suggest_float('variance', 0, 1)
-    n_clusters = trial.suggest_int('clusters', 1, 25)
+    # the search space for hyperparameters
+    v = trial.suggest_float('v', 0, 1)
+    k = trial.suggest_int('k', 1, 50)
+    n = trial.suggest_int('n', 2, 12)
+    f = trial.suggest_int('f', 1, 12)
 
-    n_prices = trial.suggest_int('n_prices', 2, 12)
-    frequency = trial.suggest_int('frequency', 1, 12)
 
+    # initialise strategy which suggested parameters
+    clustermomentum = ClusterMomentum(
+        n_clusters=k,
+        variance=v
+    )
 
-    # Call your random function with the suggested hyperparameters
-    investments = investment_strategy(
-        n_clusters=n_clusters,
-        variance=variance)
-
+    # run backtest with suggested parameters
     backtester.rolling_test(
-        decision_function=investments.strategy,
-        n_prices=n_prices,
-        frequency=frequency)
+        strategy=clustermomentum.strategy,
+        n_prices=n,
+        n_ratios=1,
+        frequency=f,
+        disable_tqdm=True
+    )
     
-    result = backtester.analyse()['Sharpe']
-
-    # Return the result as the score for Optuna to use in its search
-    return result
+    # return Sharpe ratio of backtest
+    return backtester._get_metrics(backtester.results)['Sharpe']
 
 study = optuna.create_study(direction='maximize')
-study.optimize(objective, n_trials=30, n_jobs=-1, show_progress_bar=True)
+study.optimize(objective, n_trials=5, n_jobs=-1, show_progress_bar=True)
+```
+
+    [32m[I 2023-03-23 10:56:08,401][0m A new study created in memory with name: no-name-6db98fb1-dde2-461a-b4d5-738b8807398a[0m
+    /Users/hjalmarheld/miniconda3/envs/tf/lib/python3.10/site-packages/optuna/progress_bar.py:56: ExperimentalWarning: Progress bar is experimental (supported from v1.2.0). The interface can change in the future.
+      self._init_valid()
+
+
+
+      0%|          | 0/5 [00:00<?, ?it/s]
+
+
+    [32m[I 2023-03-23 10:56:14,476][0m Trial 0 finished with value: 0.122 and parameters: {'v': 0.12742066272303587, 'k': 13, 'n': 12, 'f': 12}. Best is trial 0 with value: 0.122.[0m
+    [32m[I 2023-03-23 10:56:14,542][0m Trial 1 finished with value: 0.104 and parameters: {'v': 0.15982261378095775, 'k': 1, 'n': 2, 'f': 6}. Best is trial 0 with value: 0.122.[0m
+    [32m[I 2023-03-23 10:56:16,641][0m Trial 4 finished with value: 0.255 and parameters: {'v': 0.6573119560648449, 'k': 26, 'n': 9, 'f': 9}. Best is trial 4 with value: 0.255.[0m
+    [32m[I 2023-03-23 10:56:17,723][0m Trial 2 finished with value: 0.166 and parameters: {'v': 0.9259363572393171, 'k': 42, 'n': 2, 'f': 8}. Best is trial 4 with value: 0.255.[0m
+    [32m[I 2023-03-23 10:56:20,461][0m Trial 3 finished with value: 0.219 and parameters: {'v': 0.7801667378901557, 'k': 24, 'n': 11, 'f': 3}. Best is trial 4 with value: 0.255.[0m
+
+
+
+```python
+old_best = {'v': 0.6573119560648449, 'k': 26, 'n': 9, 'f': 9}
+```
+
+
+```python
+# get the best parameters from optuna
+best_params = study.best_params
+
+# initialise strategy with parameters
+clustermomentum = ClusterMomentum(
+    n_clusters=best_params['k'],
+    variance=best_params['v']
+)
+
+# run backtest with suggested parameters
+backtester.rolling_test(
+    strategy=clustermomentum.strategy,
+    n_prices=best_params['n'],
+    n_ratios=1,
+    frequency=best_params['f'],)
+
+backtester.analyse()
+```
+
+    100%|██████████| 35/35 [00:01<00:00, 20.75it/s]
+
+
+
+    
+![png](backtesting_files/backtesting_11_1.png)
+    
+
+
+As seen above, a better parameter choice markedly improved the performance of the strategy, especially given X and Y.
+
+# Validation
+
+To validate the strategy improve we will compare it to our original parameters as well as the market for the entire dataset, which includes data up to the end of 2022.
+
+
+```python
+# create data without max time
+DataCreator()
+```
+
+
+```python
+# try with initial parameters 
+
+# create strategy object
+clustermomentum = ClusterMomentum(
+    n_clusters=initial_params['k'],
+    variance=initial_params['v']
+)
+
+# run backtest
+backtester.rolling_test(
+    strategy=clustermomentum.strategy,
+    n_prices=initial_params['n'],
+    n_ratios=1,
+    frequency=initial_params['f']
+)
+
+# analyse backtest results
+metrics = backtester.analyse()
+```
+
+    100%|██████████| 393/393 [00:16<00:00, 23.61it/s]
+
+
+
+    
+![png](backtesting_files/backtesting_15_1.png)
+    
+
+
+As seen in the above graphs, the initial strategy hugely outperforms the market after 2016 in terms of cumulative returns. This while decreasing the standard deviation and increasing the Sharpe ratio compared to a test on just the training set. Meanwhile, the performance of the is slightly worse compared to during just the train set.
+
+
+```python
+# try with best params from optuna
+
+# initialise strategy with parameters
+clustermomentum = ClusterMomentum(
+    n_clusters=best_params['k'],
+    variance=best_params['v']
+)
+
+# run backtest with suggested parameters
+backtester.rolling_test(
+    strategy=clustermomentum.strategy,
+    n_prices=best_params['n'],
+    n_ratios=1,
+    frequency=best_params['f'],)
+
+backtester.analyse()
+```
+
+    100%|██████████| 43/43 [00:02<00:00, 17.46it/s]
+
+
+
+    
+![png](backtesting_files/backtesting_17_1.png)
+    
+
+
+
+```python
+
+```
+
+
+```python
+
 ```
