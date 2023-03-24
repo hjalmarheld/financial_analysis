@@ -64,6 +64,10 @@ class ClusterMomentum:
 
 
     def _select_n_stocks(self, prices, cluster_returns):
+        """
+        select how many stocks to pick from each cluster by 
+        maximising the sharpe ratio for historical data
+        """
         returns = prices.pivot(columns='permno', index='date', values='ret')
 
         # create portfolio with start with 1 position for each cluster
