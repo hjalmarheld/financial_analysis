@@ -22,7 +22,7 @@ class ClusterMomentum:
         X = X.set_index('permno')
         X = X.drop('date', axis=1)
         X = Normalizer().transform(X=X.values)
-        X = PCA(n_components=self.variance).fit_transform(X)
+        X = PCA(n_components=self.variance, random_state=0).fit_transform(X)
         X = KMeans(
             n_clusters=self.n_clusters, n_init='auto', random_state=0).fit(X).labels_
         clusters = pd.Series(X, index=ratios['permno'])

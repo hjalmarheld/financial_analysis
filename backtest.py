@@ -103,17 +103,27 @@ class Analyser:
         return (returns+1).cumprod()
 
 
-    def _plot_drawdown_curve(self, returns, ax):
+    def _plot_drawdown_curve(self, returns, market, ax):
         """
         plot drawdown curve for a series of returns.
         """
         # Calculate cumulative returns
         cumulative_returns = (1 + returns).cumprod()
+        cumulative_market = (1 + market).cumprod()
+
         running_max = pd.Series(cumulative_returns).cummax()
+        running_max_market = pd.Series(cumulative_market).cummax()
+
+
         drawdown = (cumulative_returns - running_max) / running_max
+        drawdown_market = (cumulative_market - running_max_market) / running_max_market
+
         drawdown = drawdown.dropna()
+        drawdown_market = drawdown_market.dropna()
+
+        ax.plot(drawdown_market)
         ax.plot(drawdown)
-        ax.fill_between(drawdown.index, drawdown, 0, alpha=0.1)
+        #ax.fill_between(drawdown.index, drawdown, 0, alpha=0.1)
         ax.set(title='Drawdown Curve')
 
 
@@ -183,7 +193,7 @@ class Analyser:
         axs['B'].set_xlabel('')
 
         # drawdown plot
-        self._plot_drawdown_curve(returns, ax=axs['C'])
+        self._plot_drawdown_curve(returns, market, ax=axs['C'])
 
         # number of stocks plot
         investments['allocs'].apply(len).plot(ax=axs['D'])
@@ -192,6 +202,11 @@ class Analyser:
         # metrics plot 
         benchmark_metrics = self._get_metrics(market)
         strategy_metrics = self._get_metrics(returns)
+
+        strategy_metrics['Beta'] = round(
+            market.loc[returns.index].cov(returns) / market.var(), 3)
+        benchmark_metrics['Beta'] = '-'
+
         metrics = pd.DataFrame(
             {'Strategy':strategy_metrics, 'Market':benchmark_metrics})
         self._plot_metrics(metrics=metrics, ax=axs['E'])

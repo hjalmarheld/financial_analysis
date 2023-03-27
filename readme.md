@@ -13,15 +13,17 @@ Testing of the final investment strategy proved that it is not a strategy for th
 
 - [Data](##Data)
 
-- [Backtesting environment](#Backtesting-environment)
+- [Backtesting Environment](#Backtesting-environment)
 
-- [Our Cluster Momentum Strategy](##Our-Cluster-Momentum-strategy)
+- [Our Cluster Momentum Strategy](##Our-Cluster-Momentum-Strategy)
 
-- [Bayesian Optimisation](##Bayesian-optimisation)
+- [Parameter Optimisation](##Parameter-optimisation)
 
 - [Strategy Validation](##validation)
 
 - [Conclusion](##conclusion)
+
+- [Future Work](##future-work)
 
 ## Data
 The provided is data is cleaned and reformatted to facilitate further use by a cleaning function. 
@@ -38,7 +40,7 @@ from datacleaner import DataCreator
 DataCreator(max_time='2017')
 ```
 
-## Backtesting environment
+## Backtesting Environment
 A complete backtesting environment which allows for easy testing of different strategies. This can be found in *backtesting.py*. The environment is modular and works by feeding price and financial data to user-defined strategies. Starting from the beginning of the dataset, the environment gives the strategy a variable amount of historical price and financial data depending on user preference. A strategy is then required to return a series of allocations based on this data. From these series, the environment will calculate the returns of the strategy.
 
 The adjustable parameters for testing are:
@@ -79,7 +81,7 @@ backtester.rolling_test(
 metrics = backtester.analyse()
 ```
 
-    100%|██████████| 323/323 [00:01<00:00, 195.44it/s]
+    100%|██████████| 323/323 [00:01<00:00, 188.51it/s]
 
 
 
@@ -92,7 +94,7 @@ The backtest of the entire market strategy performs slightly worse than the mean
 
 This is probably due to some data points getting taken out from the backtest as data points are missing. However, the cumulative returns are very similar and the backtesting class seems to be working as intended.
 
-## Our Cluster Momentum strategy
+## Our Cluster Momentum Strategy
 
 With a working backtesting system in place we created an investment strategy. The strategy combines data science and finance and consists of multiple steps which are executed as follows:
 
@@ -144,7 +146,7 @@ backtester.rolling_test(
 metrics = backtester.analyse()
 ```
 
-    100%|██████████| 321/321 [00:15<00:00, 21.23it/s]
+    100%|██████████| 321/321 [00:14<00:00, 21.80it/s]
 
 
 
@@ -155,16 +157,19 @@ metrics = backtester.analyse()
 
 The first attempt of the strategy proved very volatile. While it in total delivered greater cumulative returns than the market. It does this at the cost of a significant increase in the standard deviation, which leads to it having a smaller Sharpe ratio than the general market. This is also emphasised by the immense kurtosis of the returns, which is significantly larger than that of the market. The frequent large losses are also illustrated in the drawdown curve.
 
-## Bayesian optimisation
+## Parameter Optimisation
 To improve the results of our investment strategy we want to find better parameters for the strategy and the backtest. To do this we will use Optuna, an automatic hyperparameter optimisation framework.
 
 We will first create an objective function, in our case we will make this a backtest of the strategy for data up to 2017 and return the Sharpe ratio of this backtest. Within this objective function, we also define the variable parameters which Optuna will try to optimise using Bayesian optimisation. Optuna will then iteratively run trials and try to improve the results based on the knowlegde gained from previous trials. 
 
-With some luck, this should give us a better Sharpe ratio than the one achieved above. 
+With some luck, this should give us a better Sharpe ratio than the one achieved above.
 
 
 ```python
-import optuna
+# this has been commented out and parameters
+# are saved below for convenience 
+
+'''import optuna
 
 def objective(trial):
     # the search space for hyperparameters
@@ -192,35 +197,13 @@ def objective(trial):
     return backtester._get_metrics(backtester.results)['Sharpe']
 
 study = optuna.create_study(direction='maximize')
-study.optimize(objective, n_trials=5, n_jobs=-1, show_progress_bar=True)
-```
+study.optimize(objective, n_trials=500, n_jobs=-1, show_progress_bar=True)'''
 
-    [32m[I 2023-03-24 13:40:04,540][0m A new study created in memory with name: no-name-0f73e933-e4f7-4a5c-aff0-61ecd9424c74[0m
-    /Users/hjalmarheld/miniconda3/envs/tf/lib/python3.10/site-packages/optuna/progress_bar.py:56: ExperimentalWarning: Progress bar is experimental (supported from v1.2.0). The interface can change in the future.
-      self._init_valid()
-
-
-
-      0%|          | 0/5 [00:00<?, ?it/s]
-
-
-    [32m[I 2023-03-24 13:40:11,839][0m Trial 4 finished with value: 0.184 and parameters: {'v': 0.15414793800341697, 'k': 23, 'n': 2, 'f': 11}. Best is trial 4 with value: 0.184.[0m
-    [32m[I 2023-03-24 13:40:12,946][0m Trial 2 finished with value: 0.161 and parameters: {'v': 0.3105846984703998, 'k': 28, 'n': 11, 'f': 10}. Best is trial 4 with value: 0.184.[0m
-    [32m[I 2023-03-24 13:40:13,362][0m Trial 0 finished with value: 0.181 and parameters: {'v': 0.5310964487452435, 'k': 46, 'n': 6, 'f': 12}. Best is trial 4 with value: 0.184.[0m
-    [32m[I 2023-03-24 13:40:14,774][0m Trial 1 finished with value: 0.195 and parameters: {'v': 0.0014147507107995505, 'k': 50, 'n': 4, 'f': 7}. Best is trial 1 with value: 0.195.[0m
-    [32m[I 2023-03-24 13:40:15,223][0m Trial 3 finished with value: 0.213 and parameters: {'v': 0.43959904342292555, 'k': 17, 'n': 8, 'f': 5}. Best is trial 3 with value: 0.213.[0m
-
-
-
-```python
-old_best = {'v': 0.6573119560648449, 'k': 26, 'n': 9, 'f': 9}
+best_params = {'v': 0.11384586984345649, 'k': 25, 'n': 9, 'f': 7}
 ```
 
 
 ```python
-# get the best parameters from optuna
-best_params = old_best
-
 # initialise strategy with parameters
 clustermomentum = ClusterMomentum(
     n_clusters=best_params['k'],
@@ -237,61 +220,36 @@ backtester.rolling_test(
 backtester.analyse()
 ```
 
-    100%|██████████| 35/35 [00:01<00:00, 21.32it/s]
+    100%|██████████| 45/45 [00:03<00:00, 11.70it/s]
 
 
 
     
-![png](backtesting_files/backtesting_12_1.png)
+![png](backtesting_files/backtesting_11_1.png)
     
 
 
-As seen above, a better parameter choice markedly improved the performance of the strategy, especially given X and Y.
+The new parameters are somewhat surprising but deliver superior results. 
+
+- $n = 9$, using 9 months of data to calculate momentum probably induces more stability in the portfolio as stocks will need to deliver returns and low volatility for a longer period before getting selected for the portfolio.
+- $f = 7$, the best result was achieved when trading every 7 months. Given that no trading costs are included in the calculations it is not certain why less frequent trading yields better results. This could be a case of data mining where this number just happened to work given the data without necessarily working in other circumstances.
+- $v = 0.11$, only a small amount of the variance is kept when passing the financial ratios through the principal component analysis, this could indicate that most of the data in there does not result in better clusters. Given more time if would be interesting to further analyse the financial data and only pass pertinent data.
+- $k = 25$, the model prefers a large amount of clusters, given the small amount of variance which is kept, it is uncertain if the clusters are significantly different. A plausible explanation high number could be that is forces investments in a greater amount of stocks which should better diversify the portfolio.
+
+The updated parameters yield the same mean returns as the arbitrarilty chosen parameters but with a significantly lower standard deviation which makes for a greater Sharpe ratio. It also has significantly higher returns than the market portfolio with only a marginally higher standard deviation. Notably, it has a lower kurtosis than both the original model and the market, which indicates less "fat tails" and large portfolio value movements. Lastly, the Beta to the market has decreased.
 
 ## Validation
 
-To validate the strategy improve we will compare it to our original parameters as well as the market for the entire dataset, which includes data up to the end of 2022.
+To validate the strategy improve we will compare it to the market for the entire dataset, which includes data up to the end of 2022.
 
 
 ```python
 # create data without max time
 DataCreator()
+
+# initialise backtest environment with data
+backtester = BackTester()
 ```
-
-
-```python
-# try with initial parameters 
-
-# create strategy object
-clustermomentum = ClusterMomentum(
-    n_clusters=initial_params['k'],
-    variance=initial_params['v']
-)
-
-# run backtest
-backtester.rolling_test(
-    strategy=clustermomentum.strategy,
-    n_prices=initial_params['n'],
-    n_ratios=1,
-    frequency=initial_params['f']
-)
-
-# analyse backtest results
-metrics = backtester.analyse()
-```
-
-    100%|██████████| 321/321 [00:12<00:00, 25.48it/s]
-
-
-
-    
-![png](backtesting_files/backtesting_16_1.png)
-    
-
-
-As seen in the above graphs, the initial strategy hugely outperforms the market after 2016 in terms of cumulative returns. This while decreasing the standard deviation and increasing the Sharpe ratio compared to a test on just the training set. This logically makes sense as the strategy can be seen having a large beta and that markets largely performed very well from 2017 until the Ukraine invasion and subsequent energy crisis. Further it's notable that a large share of the market returns was realised by a small amount of companies, namely the American big tech companies, it is possible that the momementum component managed to capture this increase in value and invest in these companies.
-
-Meanwhile, the performance of the market is slightly worse compared to during just the train set.
 
 
 ```python
@@ -313,15 +271,31 @@ backtester.rolling_test(
 backtester.analyse()
 ```
 
-    100%|██████████| 35/35 [00:01<00:00, 20.89it/s]
+    100%|██████████| 56/56 [00:05<00:00, 10.57it/s]
 
 
 
     
-![png](backtesting_files/backtesting_18_1.png)
+![png](backtesting_files/backtesting_15_1.png)
     
 
+
+As seen in the above graphs, the strategy largely outperforms the market after 2016 in terms of cumulative returns. Despite massive cumulative returns for both the strategy and the market during the validation period (2017-2022), both approaches yielded lower mean returns with a higher standard deviation. However, the difference in performance between our strategy and the market remained similar.
 
 ## Conclusion
 
-To be done...
+We created a functional backtesting environment which allowed for easy testing of investment strategies and analysis of their returns. This environment was validated by testing a strategy investing in the entire market which yielded near identical results as the market, this indicates that the environment is working as intended.
+
+With the backtesting environment in hand we created a strategy combining data science and finance based on clustering and momentum. Initial testing showed that this strategy delivered superior returns to the market but at the cost a higher volatility and thus lower Sharpe ratio. 
+
+To improve our strategy we found better values for the variable parameters in the strategy by using an automatic hyperparameter optimisation framework. This greatly improved the results and our strategy now yielded a significantly higher Sharpe ratio than the market. 
+
+In order to validate the improved strategy we ran it on an out-of-sample test set which had previously been excluded. The results were largely consisted with those seen in-sample, indicating stability of the strategy. 
+
+## Future Work
+
+One line of future work is a further exploration of the parameters found during the parameter optimisation. As mentioned, some of these are suprising and could be working thanks to simple dumb luck.
+
+Further analysis of the financial data could also be useful. As previously mentioned, most of the variance within the data is discarded when passed through principal component analysis. An exploration of the financial data and how it correlates with returns could enable a more intelligent use of the financial data. 
+
+Lastly, our strategy largely seems to follow the market trends with drawdowns and peaks at similar moments with a high correlation and rather high Beta. This correlation could potentially be decreased by introducing short positions into the portfolio which is currently long-only.
