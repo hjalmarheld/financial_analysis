@@ -11,19 +11,19 @@ Testing of the final investment strategy proved that it is not a strategy for th
 
 ### Sections
 
-- [Data](##Data)
+- [Data](#data)
 
-- [Backtesting Environment](#Backtesting-environment)
+- [Backtesting Environment](#backtesting-environment)
 
-- [Our Cluster Momentum Strategy](##Our-Cluster-Momentum-Strategy)
+- [Our Cluster Momentum Strategy](#our-cluster-momentum-strategy)
 
-- [Parameter Optimisation](##Parameter-optimisation)
+- [Parameter Optimisation](#parameter-optimisation)
 
-- [Strategy Validation](##validation)
+- [Strategy Validation](#validation)
 
-- [Conclusion](##conclusion)
+- [Conclusion](#conclusion)
 
-- [Future Work](##future-work)
+- [Future Work](#future-work)
 
 ## Data
 The provided is data is cleaned and reformatted to facilitate further use by a cleaning function. 
@@ -81,7 +81,7 @@ backtester.rolling_test(
 metrics = backtester.analyse()
 ```
 
-    100%|██████████| 323/323 [00:01<00:00, 199.44it/s]
+    100%|██████████| 323/323 [00:01<00:00, 183.35it/s]
 
 
 
@@ -146,7 +146,7 @@ backtester.rolling_test(
 metrics = backtester.analyse()
 ```
 
-    100%|██████████| 321/321 [00:14<00:00, 21.93it/s]
+    100%|██████████| 321/321 [00:14<00:00, 22.24it/s]
 
 
 
@@ -220,7 +220,7 @@ backtester.rolling_test(
 backtester.analyse()
 ```
 
-    100%|██████████| 45/45 [00:03<00:00, 11.75it/s]
+    100%|██████████| 45/45 [00:03<00:00, 12.45it/s]
 
 
 
@@ -271,7 +271,7 @@ backtester.rolling_test(
 backtester.analyse()
 ```
 
-    100%|██████████| 56/56 [00:04<00:00, 12.63it/s]
+    100%|██████████| 56/56 [00:04<00:00, 12.23it/s]
 
 
 
