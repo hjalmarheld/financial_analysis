@@ -134,7 +134,7 @@ class Analyser:
         metrics = pd.Series({
             'Mean returns' : returns.mean(),
             'Standard deviation' : returns.std(),
-            'Sharpe' : returns.mean() / returns.std(),
+            'Sharpe' : returns.mean() / returns.std() * 12**.5,
             'Skew' : returns.skew(),
             'Kurtosis' : returns.kurtosis()
         })

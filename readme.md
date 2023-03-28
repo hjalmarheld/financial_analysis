@@ -81,7 +81,7 @@ backtester.rolling_test(
 metrics = backtester.analyse()
 ```
 
-    100%|██████████| 323/323 [00:01<00:00, 188.51it/s]
+    100%|██████████| 323/323 [00:01<00:00, 199.44it/s]
 
 
 
@@ -146,7 +146,7 @@ backtester.rolling_test(
 metrics = backtester.analyse()
 ```
 
-    100%|██████████| 321/321 [00:14<00:00, 21.80it/s]
+    100%|██████████| 321/321 [00:14<00:00, 21.93it/s]
 
 
 
@@ -220,7 +220,7 @@ backtester.rolling_test(
 backtester.analyse()
 ```
 
-    100%|██████████| 45/45 [00:03<00:00, 11.70it/s]
+    100%|██████████| 45/45 [00:03<00:00, 11.75it/s]
 
 
 
@@ -271,7 +271,7 @@ backtester.rolling_test(
 backtester.analyse()
 ```
 
-    100%|██████████| 56/56 [00:05<00:00, 10.57it/s]
+    100%|██████████| 56/56 [00:04<00:00, 12.63it/s]
 
 
 
@@ -299,3 +299,5 @@ One line of future work is a further exploration of the parameters found during 
 Further analysis of the financial data could also be useful. As previously mentioned, most of the variance within the data is discarded when passed through principal component analysis. An exploration of the financial data and how it correlates with returns could enable a more intelligent use of the financial data. 
 
 Lastly, our strategy largely seems to follow the market trends with drawdowns and peaks at similar moments with a high correlation and rather high Beta. This correlation could potentially be decreased by introducing short positions into the portfolio which is currently long-only.
+
+
