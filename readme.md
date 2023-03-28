@@ -98,7 +98,7 @@ This is probably due to some data points getting taken out from the backtest as 
 
 With a working backtesting system in place we created an investment strategy. The strategy combines data science and finance and consists of multiple steps which are executed as follows:
 
-1. For any given point in time the strategy receives $n$ months of price and data and one month of financial data.
+1. For any given point in time the strategy receives $n$ months of price data and one month of financial data.
 2. Financial data is standardised (0 mean, 1 variance) and passed through principal component analysis to reduce it's dimensionality, preserving $v$ variance.
 3. Reduced financial data is used to classify the different stocks into $k$ different clusters.
 4. Stocks are ordered by their total return over the $n$ months.
